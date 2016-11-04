@@ -9,10 +9,11 @@ import java.util.Arrays;
 
 public class Crypto43 {
 
-    public static class Rand {
+    private static class Rand {
         public Long state;
     }
-    public static Rand rand = new Rand();
+    
+    private static Rand rand = new Rand();
 
     private static byte[] makeIv(Rand rand)  {
         byte[] iv = new byte[256];
@@ -37,12 +38,10 @@ public class Crypto43 {
      * Shuffles bytes.
      *
      * @param input input data
-     * @param iv    iv (32 random bytes)
+     * @param msSinceStart
      * @return shuffled bytes
      */
     public static CipherText encrypt(byte[] input, Long msSinceStart) {
-
-        byte[] arr2 = new byte[256];
         byte[] arr3;
         CipherText output;
 
@@ -50,10 +49,6 @@ public class Crypto43 {
 
         byte[] iv = makeIv(rand);
         output = new CipherText(input, msSinceStart);
-
-        //uint8_t * cipher8 = cipher8_tmp.cipher;
-        //uint32_t * cipher32 = (uint32_t *) cipher8;
-
 
         for (int i = 0; i < output.content.size(); ++i) {
             byte[] current = output.content.get(i);
@@ -75,13 +70,12 @@ public class Crypto43 {
 
             for (int k = 0; k < 256; ++k)
                 current[k] = arr3[k];
-
         }
 
         return output;
     }
 
-    static byte[] shuffle2(int[] vector) {
+    private static byte[] shuffle2(int[] vector) {
         int[] tmp = new int[193];
         tmp[0] = vector[7] ^ vector[15];
         tmp[1] = ~vector[7];
@@ -3494,15 +3488,13 @@ public class Crypto43 {
 
 
     public static class CipherText {
-        public byte[] prefix;
+        byte[] prefix;
         public ArrayList<byte[]> content;
 
         int totalsize;
         int inputLen;
-        Long msSinceStart;
 
-        public byte[] intToBytes(Long x) {
-
+        byte[] intToBytes(Long x) {
             ByteBuffer buffer = ByteBuffer.allocate(4);
             buffer.putInt(new BigInteger(String.valueOf(x)).intValue());
             return buffer.array();
@@ -3512,7 +3504,7 @@ public class Crypto43 {
          * Create new CipherText with contents and IV.
          *
          * @param input the contents
-         * @param iv    random IV (32 bytes)
+         * @param ms    
          */
         public CipherText(byte[] input, Long ms) {
             this.inputLen = input.length;
@@ -3546,7 +3538,5 @@ public class Crypto43 {
             buff.put(totalsize-1, makeIntegrityByte(rand));
             return buff;
         }
-
     }
-
 }
