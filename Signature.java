@@ -19,6 +19,7 @@ import com.pokegoapi.api.device.LocationFixes;
 import com.pokegoapi.exceptions.RemoteServerException;
 
 import java.util.Random;
+import java.nio.ByteBuffer;
 
 import POGOProtos.Networking.Envelopes.RequestEnvelopeOuterClass;
 import POGOProtos.Networking.Envelopes.SignatureOuterClass;
@@ -31,17 +32,16 @@ public class Signature {
 	 * Given a fully built request, set the signature correctly.
 	 *
 	 * @param api     the api
-	 * @param auth_ticket the bytes of the auth ticket
 	 * @param builder the requestenvelop builder
 	 */
-	public static void setSignature(PokemonGo api, byte[] auth_ticket, RequestEnvelopeOuterClass.RequestEnvelope.Builder builder)
+	public static void setSignature(PokemonGo api, RequestEnvelopeOuterClass.RequestEnvelope.Builder builder)
 			throws RemoteServerException {
 
 		if (builder.getAuthTicket() == null) {
-			//System.out.println("Ticket == null");
 			return;
 		}
 
+		byte[] auth_ticket = builder.getAuthTicket().toByteArray();
 		long currentTime = api.currentTimeMillis();
 		long timeSince = currentTime - api.getStartTime();
 
@@ -57,7 +57,7 @@ public class Signature {
 				.setIosDeviceInfo(api.getActivitySignature(random))
 				.addAllLocationUpdates(LocationFixes.getDefault(api, builder, currentTime, random))
 				.setField22(ByteString.copyFrom(api.getSessionHash())) // random 16 bytes
-				.setField25(-8408506833887075802L);
+				.setField25(Constant.UNK25);
 
 		SignatureOuterClass.Signature.SensorUpdate sensorInfo = api.getSensorSignature(currentTime, random);
 		if (sensorInfo != null) {
@@ -101,7 +101,6 @@ public class Signature {
 	private static int getLocationHash1(PokemonGo api, byte[] auth_ticket) {
 		byte[] bytes = new byte[24];
 		int seed = Hasher.hash32(auth_ticket);
-
 		System.arraycopy(getBytes(api.getLatitude()), 0, bytes, 0, 8);
 		System.arraycopy(getBytes(api.getLongitude()), 0, bytes, 8, 8);
 		System.arraycopy(getBytes(api.getAltitude()), 0, bytes, 16, 8);
@@ -111,7 +110,6 @@ public class Signature {
 
 	private static int getLocationHash2(PokemonGo api) {
 		byte[] bytes = new byte[24];
-
 		System.arraycopy(getBytes(api.getLatitude()), 0, bytes, 0, 8);
 		System.arraycopy(getBytes(api.getLongitude()), 0, bytes, 8, 8);
 		System.arraycopy(getBytes(api.getAltitude()), 0, bytes, 16, 8);
