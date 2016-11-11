@@ -12,19 +12,26 @@
  *     You should have received a copy of the GNU General Public License
  *     along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.pokegoapi.util;
-import com.google.protobuf.ByteString;
-import com.pokegoapi.api.PokemonGo;
-import com.pokegoapi.api.device.LocationFixes;
-import com.pokegoapi.exceptions.RemoteServerException;
 
-import java.util.Random;
+package com.pokegoapi.util;
+
+import com.google.protobuf.ByteString;
+import com.pogojava.pogojavaapi.pokegoapi.api.PokemonGo;
+import com.pogojava.pogojavaapi.pokegoapi.api.device.ActivityStatus;
+import com.pogojava.pogojavaapi.pokegoapi.api.device.DeviceInfo;
+import com.pogojava.pogojavaapi.pokegoapi.api.device.LocationFixes;
+import com.pogojava.pogojavaapi.pokegoapi.api.device.SensorInfo;
+import com.pogojava.pogojavaapi.pokegoapi.api.device.SensorInfos;
+import com.pogojava.pogojavaapi.pokegoapi.exceptions.RemoteServerException;
+
 import java.nio.ByteBuffer;
+import java.util.Random;
 
 import POGOProtos.Networking.Envelopes.RequestEnvelopeOuterClass;
 import POGOProtos.Networking.Envelopes.SignatureOuterClass;
 import POGOProtos.Networking.Platform.PlatformRequestTypeOuterClass;
 import POGOProtos.Networking.Platform.Requests.SendEncryptedSignatureRequestOuterClass;
+import POGOProtos.Networking.Requests.RequestOuterClass;
 
 public class Signature {
 
@@ -38,6 +45,7 @@ public class Signature {
 			throws RemoteServerException {
 
 		if (builder.getAuthTicket() == null) {
+			//System.out.println("Ticket == null");
 			return;
 		}
 
@@ -53,19 +61,20 @@ public class Signature {
 				.setLocationHash(getLocationHash2(api))
 				.setEpochTimestampMs(currentTime)
 				.setTimestampMsSinceStart(timeSince)
-				.setDeviceInfo(api.getDeviceInfo())
-				.setIosDeviceInfo(api.getActivitySignature(random))
+				.setDeviceInfo(DeviceInfo.getDefault(api).getBuilder().build())
+				.setIosDeviceInfo(ActivityStatus.getDefault(api, random))
 				.addAllLocationUpdates(LocationFixes.getDefault(api, builder, currentTime, random))
 				.setField22(ByteString.copyFrom(api.getSessionHash())) // random 16 bytes
-				.setField25(Constant.UNK25);
+				.setField25(-1553869577012279119L);
 
-		SignatureOuterClass.Signature.SensorUpdate sensorInfo = api.getSensorSignature(currentTime, random);
+		SignatureOuterClass.Signature.SensorUpdate sensorInfo = SensorInfo.getDefault(api, currentTime, random);
 		if (sensorInfo != null) {
 			sigBuilder.addSensorUpdates(sensorInfo);
 		}
 
-		for (int i=0;i<builder.getRequestsList().size();i++) {
-			sigBuilder.addRequestHashes(getRequestHash(builder.getRequests(i).toByteArray(), auth_ticket));
+		for (RequestOuterClass.Request serverRequest : builder.getRequestsList()) {
+			byte[] request = serverRequest.toByteArray();
+			sigBuilder.addRequestHashes(getRequestHash(request, auth_ticket));
 		}
 
 		SignatureOuterClass.Signature signature = sigBuilder.build();
@@ -101,24 +110,26 @@ public class Signature {
 	private static int getLocationHash1(PokemonGo api, byte[] auth_ticket) {
 		byte[] bytes = new byte[24];
 		int seed = Hasher.hash32(auth_ticket);
+
 		System.arraycopy(getBytes(api.getLatitude()), 0, bytes, 0, 8);
 		System.arraycopy(getBytes(api.getLongitude()), 0, bytes, 8, 8);
-		System.arraycopy(getBytes(api.getAltitude()), 0, bytes, 16, 8);
+		System.arraycopy(getBytes(api.getAccuracy()), 0, bytes, 16, 8);
 
-		return Hasher.hash32salt(bytes, Hasher.intToByteArray(seed));
+		return Hasher.hash32Salt(bytes, Hasher.intToByteArray(seed));
 	}
 
 	private static int getLocationHash2(PokemonGo api) {
 		byte[] bytes = new byte[24];
+
 		System.arraycopy(getBytes(api.getLatitude()), 0, bytes, 0, 8);
 		System.arraycopy(getBytes(api.getLongitude()), 0, bytes, 8, 8);
-		System.arraycopy(getBytes(api.getAltitude()), 0, bytes, 16, 8);
+		System.arraycopy(getBytes(api.getAccuracy()), 0, bytes, 16, 8);
 
 		return Hasher.hash32(bytes);
 	}
 
 	private static long getRequestHash(byte[] request, byte[] auth_ticket) {
-		byte[] seed = ByteBuffer.allocate(8).putLong(Hasher.hash64(auth_ticket).longValue()).array();
-		return Hasher.hash64salt(request, seed).longValue();
+		byte[] seed = ByteBuffer.allocate(8).putLong(Hasher.hash64(auth_ticket)).array();
+		return Hasher.hash64Salt(request, seed);
 	}
 }
